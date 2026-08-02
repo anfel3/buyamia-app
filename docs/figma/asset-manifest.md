@@ -13,6 +13,19 @@ Asset discovery is blocked by Figma MCP access. No mobile assets could be identi
 | --- | --- | --- | --- | --- | --- |
 | TODO | TODO | TODO | TODO | TODO | TODO |
 
+## Asset Categories To Confirm
+
+| Category | Status | Notes |
+| --- | --- | --- |
+| Product or service imagery | TODO | Requires readable mobile frames |
+| Brand marks | TODO | Requires readable mobile frames |
+| Icons | TODO | Requires readable mobile frames |
+| Illustrations | TODO | Requires readable mobile frames |
+| Avatars or profile images | TODO | Requires readable mobile frames |
+| Empty-state artwork | TODO | Requires readable mobile frames |
+| Loading or error artwork | TODO | Requires readable mobile frames |
+| Payment or checkout icons, if present | TODO | Requires readable mobile frames |
+
 ## Existing Repository Assets
 
 These files already exist in `assets/`, but they were not matched to Figma screens:
@@ -25,9 +38,18 @@ These files already exist in `assets/`, but they were not matched to Figma scree
 | `assets/android-icon-background.png` | Existing Android icon background asset |
 | `assets/android-icon-foreground.png` | Existing Android icon foreground asset |
 | `assets/android-icon-monochrome.png` | Existing Android monochrome icon asset |
+| `assets/figma/icons/.gitkeep` | Placeholder directory for future Figma icon assets |
+| `assets/figma/images/.gitkeep` | Placeholder directory for future Figma image assets |
 
 ## Rules
 
 - Do not use full-screen screenshots as UI.
 - Do not use desktop or website assets unless they are also part of the mobile application.
 - Do not invent missing assets.
+
+## Totals
+
+| Metric | Confirmed count | Actual count |
+| --- | ---: | --- |
+| Mobile Figma assets | 0 | UNKNOWN until Figma is readable |
+| Existing repo assets | 8 | 8 discovered locally |

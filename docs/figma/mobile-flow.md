@@ -17,12 +17,37 @@ No mobile flows can be confirmed from the available data.
 
 ## Navigation Areas To Confirm
 
-- Authentication / onboarding flow: TODO
-- Main tab or stack flow: TODO
-- Product discovery flow: TODO
-- Product detail flow: TODO
-- Cart / checkout flow: TODO
-- Account / profile flow: TODO
-- Modal or sheet flows: TODO
+| Navigation area | Status | Notes |
+| --- | --- | --- |
+| Bottom navigation | TODO | Requires mobile frames |
+| Headers | TODO | Requires mobile frames |
+| Authentication flow | TODO | Requires mobile frames |
+| Onboarding flow | TODO | Requires mobile frames |
+| Home flow | TODO | Requires mobile frames |
+| Product or service discovery flow | TODO | Requires mobile frames |
+| Product or service detail flow | TODO | Requires mobile frames |
+| Search and filters flow | TODO | Requires mobile frames |
+| Cart or checkout flow, if present | TODO | Requires mobile frames |
+| Profile and settings flow | TODO | Requires mobile frames |
+| Modal or sheet flows | TODO | Requires mobile frames |
+| Empty, loading, and error transitions | TODO | Requires mobile frames |
+
+## Expo Router Mapping
+
+Routes cannot be proposed safely until actual mobile frame names, hierarchy, and prototype connections are available.
+
+| Proposed route group | Candidate purpose | Status |
+| --- | --- | --- |
+| `app/(auth)` | Auth and onboarding screens | TODO |
+| `app/(tabs)` | Main app bottom-tab screens, if present | TODO |
+| `app/(modals)` | Modal and sheet presentations, if present | TODO |
+
+These are planning placeholders only, not confirmed routes.
+
+## Totals
+
+| Metric | Confirmed count | Actual count |
+| --- | ---: | --- |
+| Mobile flows | 0 | UNKNOWN until Figma is readable |
 
 No backend behavior is assumed.
