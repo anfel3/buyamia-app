@@ -4,6 +4,9 @@ import { useEffect } from 'react';
 import { Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { AuthProvider } from '../providers/AuthProvider';
+import { CartProvider } from '../providers/CartProvider';
+import { SavedProvider } from '../providers/SavedProvider';
 import { theme } from '../theme';
 
 export default function RootLayout() {
@@ -33,15 +36,21 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar style="dark" />
-      <Stack
-        screenOptions={{
-          contentStyle: {
-            backgroundColor: theme.colors.exterior,
-          },
-          headerShown: false,
-        }}
-      />
+      <AuthProvider>
+        <SavedProvider>
+          <CartProvider>
+            <StatusBar style="dark" />
+            <Stack
+              screenOptions={{
+                contentStyle: {
+                  backgroundColor: theme.colors.exterior,
+                },
+                headerShown: false,
+              }}
+            />
+          </CartProvider>
+        </SavedProvider>
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }

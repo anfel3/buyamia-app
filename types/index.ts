@@ -2,6 +2,7 @@ export type RootStackParamList = {
   'auth/sign-in': undefined;
   'auth/sign-up': undefined;
   amia: undefined;
+  cart: undefined;
   categories: undefined;
   community: undefined;
   'fast-selling': undefined;
@@ -9,6 +10,7 @@ export type RootStackParamList = {
   index: undefined;
   'product/[id]': { id: string };
   recommendations: undefined;
+  saved: undefined;
   search: { category?: string; query?: string };
   'sellers-promo': undefined;
 };
@@ -63,6 +65,12 @@ export type Product = {
   mood: 'calm' | 'energetic' | 'cozy' | 'elegant' | 'playful' | 'romantic' | 'formal';
   room: 'Living Room' | 'Kitchen' | 'Garden' | 'Bathroom' | 'Bedroom';
   color: string;
+  colorName: 'beige' | 'black' | 'blue' | 'brown' | 'green' | 'pink' | 'red' | 'white' | 'yellow';
+  material: 'bamboo' | 'coconut-shell' | 'glass' | 'metal' | 'natural' | 'wood';
+  productType: 'armchair' | 'chair' | 'cookware' | 'package' | 'table' | 'vehicle';
+  priceIdr: number;
+  keywords: readonly string[];
+  bulkAvailable?: boolean;
   isFlashSale?: boolean;
   isFastSelling?: boolean;
   isRecommended?: boolean;

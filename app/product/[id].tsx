@@ -1,13 +1,20 @@
+import type { Href } from 'expo-router';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Button, BuyamiaHeader, EditorialSection, ProductRail, Screen, imageAssets } from '../../components';
 import { getBrandById, getCategoryById, getProductById, products } from '../../data';
+import { useCart } from '../../providers/CartProvider';
+import { useSaved } from '../../providers/SavedProvider';
 import { theme } from '../../theme';
 
 export default function ProductDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { addProduct } = useCart();
+  const { isSaved, toggleSaved } = useSaved();
+  const [notice, setNotice] = useState('');
   const product = typeof id === 'string' ? getProductById(id) : undefined;
 
   if (!product) {
@@ -25,6 +32,22 @@ export default function ProductDetailScreen() {
   const category = getCategoryById(product.categoryId);
   const brand = getBrandById(product.brandId);
   const related = products.filter((item) => item.categoryId === product.categoryId && item.id !== product.id);
+  const saved = isSaved(product.id);
+  const signInHref = `/auth/sign-in?redirect=${encodeURIComponent(`/product/${product.id}`)}` as Href;
+
+  const handleResult = (result: { message?: string; ok: boolean; reason?: string }) => {
+    if (result.ok) {
+      setNotice('');
+      return;
+    }
+
+    if (result.reason === 'auth_required') {
+      router.push(signInHref);
+      return;
+    }
+
+    setNotice(result.message ?? 'This action could not be completed.');
+  };
 
   return (
     <Screen>
@@ -46,10 +69,20 @@ export default function ProductDetailScreen() {
         </View>
         <View style={styles.actions}>
           <Button label="Ask Amia" onPress={() => router.push({ pathname: '/amia', params: { product: product.id } })} variant="lime" />
-          <Button label="Add to cart" onPress={() => router.push('/auth/sign-in')} />
+          <Button label="Add to cart" onPress={() => void addProduct(product).then(handleResult)} />
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => void toggleSaved(product.id).then(handleResult)}
+            style={styles.heartButton}
+          >
+            <Text style={[styles.heartText, saved ? styles.heartSaved : null]}>
+              {saved ? '♥ Saved' : '♡ Save product'}
+            </Text>
+          </Pressable>
         </View>
-        <EditorialSection title="Backend status" tone="paper">
-          <Text style={styles.body}>Cart, checkout, inventory and ordering are still demo-only. No backend success is simulated.</Text>
+        {notice ? <Text style={styles.notice}>{notice}</Text> : null}
+        <EditorialSection title="Local prototype" tone="paper">
+          <Text style={styles.body}>Accounts, saved products and cart data are stored locally on this device for demo use.</Text>
         </EditorialSection>
         <ProductRail products={related} title="Related products" />
       </ScrollView>
@@ -93,9 +126,30 @@ const styles = StyleSheet.create({
     height: 270,
     width: '100%',
   },
+  heartButton: {
+    alignItems: 'center',
+    backgroundColor: theme.colors.paper,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radii.xs,
+    borderWidth: StyleSheet.hairlineWidth,
+    minHeight: 34,
+    justifyContent: 'center',
+    paddingHorizontal: theme.spacing.md,
+  },
+  heartSaved: {
+    color: theme.colors.danger,
+  },
+  heartText: {
+    ...theme.typography.button,
+    color: theme.colors.ink,
+  },
   muted: {
     ...theme.typography.caption,
     color: theme.colors.muted,
+  },
+  notice: {
+    ...theme.typography.caption,
+    color: theme.colors.danger,
   },
   price: {
     ...theme.typography.body,

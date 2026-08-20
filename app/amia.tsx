@@ -1,68 +1,141 @@
 import { useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { BuyamiaHeader, ProductList, Screen } from '../components';
-import { filterProducts, getProductById, products } from '../data';
+import { getProductById } from '../data';
+import { useAuth } from '../providers/AuthProvider';
+import {
+  clearAmiaMemory,
+  createAmiaReply,
+  createEmptyAmiaMemory,
+  readAmiaMemory,
+  writeAmiaMemory,
+} from '../services/amia';
+import type { AmiaMemory, AmiaMessage } from '../services/amia';
 import { theme } from '../theme';
 
-type Message = {
-  id: string;
-  author: 'Amia' | 'You';
-  text: string;
-};
+const newMessage = (author: AmiaMessage['author'], text: string): AmiaMessage => ({
+  author,
+  id: `${author.toLowerCase()}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+  text,
+});
 
-const demoReply = (text: string) => {
-  const lower = text.toLowerCase();
-  if (lower.includes('delivery') || lower.includes('next month')) {
-    return 'Demo Amia: I noted delivery next month. These local suggestions prioritize contract-ready and quick-shipping products.';
-  }
-  if (lower.includes('hotel') || lower.includes('furniture')) {
-    return 'Demo Amia: For a boutique hotel, I would start with bamboo tables, hand carved chairs and curated room packages.';
-  }
-  return 'Demo Amia: I can only search local demo data for now. A real AI/API can replace this service later.';
-};
+const welcomeMessage = (productName?: string): AmiaMessage => ({
+  id: 'welcome',
+  author: 'Amia',
+  text: productName
+    ? `Hi there. I can help you compare ${productName}. Amia is Buyamia's local smart shopping assistant.`
+    : "Hi there. I am Amia, Buyamia's local smart shopping assistant. What are you shopping for?",
+});
 
 export default function AmiaScreen() {
   const params = useLocalSearchParams<{ product?: string }>();
   const product = typeof params.product === 'string' ? getProductById(params.product) : undefined;
+  const { user } = useAuth();
+  const scrollRef = useRef<ScrollView | null>(null);
   const [input, setInput] = useState('');
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 'welcome',
-      author: 'Amia',
-      text: product
-        ? `Hi there. I can help you compare ${product.name}. This is a local demo service.`
-        : 'Hi there. I am Amia. Powered by Buyamia. How can I help?',
-    },
-  ]);
-  const [precision, setPrecision] = useState(false);
+  const [memory, setMemory] = useState<AmiaMemory>(() => createEmptyAmiaMemory());
+  const [messages, setMessages] = useState<AmiaMessage[]>(() => [welcomeMessage(product?.name)]);
+  const [processing, setProcessing] = useState(false);
+  const [quickSuggestions, setQuickSuggestions] = useState(['Discover bamboo furniture', 'Under 2 million IDR', 'Living room']);
+  const userId = user?.id ?? null;
 
-  const suggestions = useMemo(() => {
-    const query = messages[messages.length - 1]?.text ?? '';
-    return filterProducts({ query: product?.name ?? query }).slice(0, 3);
-  }, [messages, product]);
+  useEffect(() => {
+    let active = true;
 
-  const send = (text = input) => {
+    void readAmiaMemory(userId).then((storedMemory) => {
+      if (!active) {
+        return;
+      }
+
+      const hasStoredMessages = storedMemory.lastMessages.length > 0;
+      const initialMessages = hasStoredMessages ? storedMemory.lastMessages : [welcomeMessage(product?.name)];
+      const initialProductIds = hasStoredMessages
+        ? storedMemory.recentRecommendedProductIds
+        : product
+          ? [product.id]
+          : [];
+
+      setMemory({ ...storedMemory, recentRecommendedProductIds: initialProductIds });
+      setMessages(initialMessages);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [product, userId]);
+
+  const displayedProducts = useMemo(
+    () => memory.recentRecommendedProductIds.map((id) => getProductById(id)).filter((item) => item !== undefined),
+    [memory.recentRecommendedProductIds],
+  );
+
+  const send = useCallback(async (text = input) => {
     const clean = text.trim();
-    if (!clean) return;
-    setMessages((current) => [
-      ...current,
-      { id: `you-${Date.now()}`, author: 'You', text: clean },
-      { id: `amia-${Date.now()}`, author: 'Amia', text: demoReply(clean) },
-    ]);
+    if (!clean || processing) return;
+
+    setProcessing(true);
     setInput('');
-  };
+
+    const userMessage = newMessage('You', clean);
+    const reply = createAmiaReply(clean, {
+      currentIntent: memory.currentIntent,
+      recentRecommendedProductIds: memory.recentRecommendedProductIds,
+      turnCount: memory.lastMessages.length,
+    });
+    const amiaMessage = newMessage('Amia', reply.text);
+    const nextMessages = [...messages, userMessage, amiaMessage].slice(-20);
+    const nextMemory: AmiaMemory = {
+      ...memory,
+      currentIntent: reply.intent,
+      lastMessages: nextMessages,
+      recentRecommendedProductIds: reply.productIds.length ? reply.productIds : memory.recentRecommendedProductIds,
+    };
+
+    setMessages(nextMessages);
+    setMemory(nextMemory);
+    setQuickSuggestions(reply.suggestions);
+
+    try {
+      setMemory(await writeAmiaMemory(userId, nextMemory));
+    } finally {
+      setProcessing(false);
+    }
+  }, [input, memory, messages, processing, userId]);
+
+  const clearConversation = useCallback(async () => {
+    const emptyMemory = await clearAmiaMemory(userId);
+    const initialMemory = {
+      ...emptyMemory,
+      recentRecommendedProductIds: product ? [product.id] : [],
+    };
+
+    setMemory(initialMemory);
+    setMessages([welcomeMessage(product?.name)]);
+    setQuickSuggestions(['Discover bamboo furniture', 'Under 2 million IDR', 'Living room']);
+  }, [product, userId]);
 
   return (
     <Screen>
       <BuyamiaHeader />
       <View style={styles.promptBar}>
-        <Text style={styles.promptText}>Tell us what you need. We'll find it.</Text>
+        <Text style={styles.promptText}>Amia is Buyamia's local smart shopping assistant.</Text>
       </View>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
+        ref={scrollRef}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.chatHeader}>
+          <Text style={styles.localNote}>Local catalog search. No external shopping service is connected.</Text>
+          <Pressable onPress={clearConversation} style={styles.clearButton}>
+            <Text style={styles.clearText}>New conversation</Text>
+          </Pressable>
+        </View>
         <View style={styles.suggestions}>
-          {['Discover products', 'About Amia', 'Affiliate Program', 'Find fleet options', 'Search your ideal specs'].map((item) => (
+          {quickSuggestions.map((item) => (
             <Pressable key={item} onPress={() => send(item)} style={styles.suggestion}>
               <Text style={styles.suggestionText}>{item}</Text>
             </Pressable>
@@ -75,16 +148,17 @@ export default function AmiaScreen() {
               <Text style={styles.message}>{message.text}</Text>
             </View>
           ))}
+          {processing ? (
+            <View style={styles.bubble}>
+              <Text style={styles.author}>Amia</Text>
+              <Text style={styles.message}>Checking the local Buyamia catalog...</Text>
+            </View>
+          ) : null}
         </View>
-        <ProductList products={suggestions.length ? suggestions : products.slice(0, 3)} />
-        {precision ? (
-          <View style={styles.bubble}>
-            <Text style={styles.message}>I would also prefer delivery within the next month.</Text>
+        {displayedProducts.length ? <ProductList products={displayedProducts} /> : (
+          <View style={styles.emptyState}>
+            <Text style={styles.message}>Ask for a product, room, material, style or budget to see catalog matches.</Text>
           </View>
-        ) : (
-          <Pressable onPress={() => { setPrecision(true); send('I would also prefer delivery within the next month.'); }} style={styles.precision}>
-            <Text style={styles.message}>Add delivery preference for next month</Text>
-          </Pressable>
         )}
       </ScrollView>
       <View style={styles.composer}>
@@ -96,11 +170,11 @@ export default function AmiaScreen() {
           style={styles.input}
           value={input}
         />
-        <Pressable onPress={() => send()} style={styles.send}>
+        <Pressable disabled={processing} onPress={() => send()} style={[styles.send, processing ? styles.sendDisabled : null]}>
           <Text style={styles.sendText}>↑</Text>
         </Pressable>
       </View>
-      <Text style={styles.disclaimer}>By chatting with Amia, you are using a local demo service. Backend and LLM integration are not connected yet.</Text>
+      <Text style={styles.disclaimer}>Amia is Buyamia's local smart shopping assistant.</Text>
     </Screen>
   );
 }
@@ -118,6 +192,24 @@ const styles = StyleSheet.create({
   },
   chat: {
     gap: theme.spacing.sm,
+  },
+  chatHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+    justifyContent: 'space-between',
+  },
+  clearButton: {
+    backgroundColor: theme.colors.paper,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radii.xs,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+  },
+  clearText: {
+    ...theme.typography.caption,
+    color: theme.colors.ink,
   },
   composer: {
     alignItems: 'flex-end',
@@ -140,6 +232,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.md,
     textAlign: 'center',
   },
+  emptyState: {
+    backgroundColor: theme.colors.paper,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radii.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: theme.spacing.md,
+  },
   input: {
     ...theme.typography.body,
     backgroundColor: theme.colors.white,
@@ -155,12 +254,10 @@ const styles = StyleSheet.create({
     ...theme.typography.body,
     color: theme.colors.ink,
   },
-  precision: {
-    backgroundColor: theme.colors.paper,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radii.sm,
-    borderWidth: StyleSheet.hairlineWidth,
-    padding: theme.spacing.md,
+  localNote: {
+    ...theme.typography.caption,
+    color: theme.colors.muted,
+    flex: 1,
   },
   promptBar: {
     backgroundColor: theme.colors.appAlt,
@@ -181,6 +278,9 @@ const styles = StyleSheet.create({
     height: 34,
     justifyContent: 'center',
     width: 34,
+  },
+  sendDisabled: {
+    opacity: 0.5,
   },
   sendText: {
     color: theme.colors.lime,

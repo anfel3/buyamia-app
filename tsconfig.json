@@ -8,5 +8,9 @@
     "**/*.tsx",
     "expo-env.d.ts",
     ".expo/types/**/*.ts"
+  ],
+  "exclude": [
+    ".test-build",
+    "tests"
   ]
 }

@@ -1,4 +1,6 @@
-import { useRouter } from 'expo-router';
+import type { Href } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
+import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
@@ -8,6 +10,8 @@ import {
   rooms,
   styleOptions,
 } from '../data';
+import { useCart } from '../providers/CartProvider';
+import { useSaved } from '../providers/SavedProvider';
 import { theme } from '../theme';
 import type { ImageKey, Product } from '../types';
 import { Button } from './Button';
@@ -94,36 +98,35 @@ export function ProductCard({
   const router = useRouter();
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={() => router.push({ pathname: '/product/[id]', params: { id: product.id } })}
-      style={({ pressed }) => [
-        styles.productCard,
-        compact ? styles.productCompact : null,
-        pressed ? styles.pressed : null,
-      ]}
-    >
-      <Image resizeMode="cover" source={imageAssets[product.imageKey]} style={styles.productImage} />
-      <View style={styles.productBody}>
-        <Text numberOfLines={2} style={styles.productName}>
-          {product.name}
-        </Text>
-        {product.discount ? <Text style={styles.discount}>{product.discount}</Text> : null}
-        <View style={styles.productMetaRow}>
-          <Text numberOfLines={1} style={styles.productMeta}>{product.estimatedPrice}</Text>
-          <Text numberOfLines={1} style={styles.productSeller}>{product.seller}</Text>
+    <View style={[styles.productCard, compact ? styles.productCompact : null]}>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => router.push({ pathname: '/product/[id]', params: { id: product.id } })}
+        style={({ pressed }) => [styles.productCardOpen, pressed ? styles.pressed : null]}
+      >
+        <Image resizeMode="cover" source={imageAssets[product.imageKey]} style={styles.productImage} />
+        <View style={styles.productBody}>
+          <Text numberOfLines={2} style={styles.productName}>
+            {product.name}
+          </Text>
+          {product.discount ? <Text style={styles.discount}>{product.discount}</Text> : null}
+          <View style={styles.productMetaRow}>
+            <Text numberOfLines={1} style={styles.productMeta}>{product.estimatedPrice}</Text>
+            <Text numberOfLines={1} style={styles.productSeller}>{product.seller}</Text>
+          </View>
+          <View style={styles.productMetaRow}>
+            <Text numberOfLines={1} style={styles.price}>{product.idrPrice}</Text>
+            <Text style={styles.productMeta}>★ {product.rating}/5</Text>
+          </View>
+          <View style={styles.productActions}>
+            <Text style={styles.pill}>{product.availability ?? 'Living Room'}</Text>
+          </View>
         </View>
-        <View style={styles.productMetaRow}>
-          <Text numberOfLines={1} style={styles.price}>{product.idrPrice}</Text>
-          <Text style={styles.productMeta}>★ {product.rating}/5</Text>
-        </View>
-        <View style={styles.productActions}>
-          <Text style={styles.pill}>{product.availability ?? 'Living Room'}</Text>
-          <Text style={styles.smallAction}>+</Text>
-          <Text style={styles.smallAction}>♡</Text>
-        </View>
+      </Pressable>
+      <View style={styles.productCardQuickActions}>
+        <ProductQuickActions product={product} />
       </View>
-    </Pressable>
+    </View>
   );
 }
 
@@ -154,21 +157,65 @@ export function ProductRow({ product }: { product: Product }) {
   const router = useRouter();
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={() => router.push({ pathname: '/product/[id]', params: { id: product.id } })}
-      style={({ pressed }) => [styles.productRow, pressed ? styles.pressed : null]}
-    >
-      <Image resizeMode="cover" source={imageAssets[product.imageKey]} style={styles.productRowImage} />
-      <View style={styles.productRowBody}>
-        <Text numberOfLines={1} style={styles.productRowName}>{product.name}</Text>
-        {product.discount ? <Text style={styles.discount}>{product.discount}</Text> : null}
-        <View style={styles.productMetaRow}>
-          <Text style={styles.productMeta}>{product.soldLabel}</Text>
-          <Text style={styles.productMeta}>★ {product.rating}/5</Text>
+    <View style={styles.productRow}>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => router.push({ pathname: '/product/[id]', params: { id: product.id } })}
+        style={({ pressed }) => [styles.productRowOpen, pressed ? styles.pressed : null]}
+      >
+        <Image resizeMode="cover" source={imageAssets[product.imageKey]} style={styles.productRowImage} />
+        <View style={styles.productRowBody}>
+          <Text numberOfLines={1} style={styles.productRowName}>{product.name}</Text>
+          {product.discount ? <Text style={styles.discount}>{product.discount}</Text> : null}
+          <View style={styles.productMetaRow}>
+            <Text style={styles.productMeta}>{product.soldLabel}</Text>
+            <Text style={styles.productMeta}>★ {product.rating}/5</Text>
+          </View>
         </View>
-      </View>
-    </Pressable>
+      </Pressable>
+      <ProductQuickActions product={product} />
+    </View>
+  );
+}
+
+function ProductQuickActions({ product }: { product: Product }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const { addProduct } = useCart();
+  const { isSaved, toggleSaved } = useSaved();
+  const saved = isSaved(product.id);
+
+  const sendToSignIn = () => {
+    router.push(`/auth/sign-in?redirect=${encodeURIComponent(pathname)}` as Href);
+  };
+
+  const runAction = async (action: () => Promise<{ ok: boolean; reason?: string }>) => {
+    const result = await action();
+
+    if (!result.ok && result.reason === 'auth_required') {
+      sendToSignIn();
+    }
+  };
+
+  return (
+    <View style={styles.quickActionGroup}>
+      <Pressable
+        accessibilityLabel={`Add ${product.name} to cart`}
+        accessibilityRole="button"
+        onPress={() => void runAction(() => addProduct(product))}
+        style={styles.smallActionButton}
+      >
+        <Text style={styles.smallAction}>+</Text>
+      </Pressable>
+      <Pressable
+        accessibilityLabel={saved ? `Remove ${product.name} from saved products` : `Save ${product.name}`}
+        accessibilityRole="button"
+        onPress={() => void runAction(() => toggleSaved(product.id))}
+        style={styles.smallActionButton}
+      >
+        <Text style={[styles.smallAction, saved ? styles.smallActionActive : null]}>{saved ? '♥' : '♡'}</Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -318,10 +365,19 @@ export function FilterPanel({
 }
 
 function FilterGroup({ children, title }: { children: ReactNode; title: string }) {
+  const [expanded, setExpanded] = useState(true);
+
   return (
     <View style={styles.filterGroup}>
-      <Text style={styles.filterGroupTitle}>{title}</Text>
-      {children}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded }}
+        onPress={() => setExpanded((current) => !current)}
+        style={styles.filterGroupToggle}
+      >
+        <Text style={styles.filterGroupTitle}>{title}</Text>
+      </Pressable>
+      {expanded ? <View>{children}</View> : null}
     </View>
   );
 }
@@ -345,8 +401,14 @@ export function FeedbackModal({
 }) {
   return (
     <View style={styles.feedbackOverlay}>
+      <Pressable
+        accessibilityLabel="Close feedback modal"
+        accessibilityRole="button"
+        onPress={onClose}
+        style={styles.feedbackBackdrop}
+      />
       <View style={styles.feedbackCard}>
-        <Image source={imageAssets.brand} style={styles.feedbackImage} />
+        <Image resizeMode="cover" source={imageAssets.brand} style={styles.feedbackImage} />
         <View style={styles.feedbackBody}>
           <View style={styles.filterHeader}>
             <Text style={styles.feedbackTitle}>Help us serve you better</Text>
@@ -355,7 +417,7 @@ export function FeedbackModal({
             </Pressable>
           </View>
           <Text style={styles.bodyText}>
-            We are always working to make Buyamia a better experience. Tell us what is working and what is not. As a thank you, you will receive 10% off your next purchase once backend submission is connected.
+            We are always working to make Buyamia a better experience. Tell us what is working and what is not. This prototype validates feedback locally.
           </Text>
           <TextInput
             autoCapitalize="none"
@@ -456,16 +518,23 @@ const styles = StyleSheet.create({
     gap: theme.spacing.md,
     padding: theme.spacing.lg,
   },
+  feedbackBackdrop: {
+    bottom: 0,
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    top: 0,
+  },
   feedbackCard: {
     backgroundColor: theme.colors.paper,
     borderRadius: theme.radii.md,
     overflow: 'hidden',
     width: '86%',
+    zIndex: 1,
   },
   feedbackImage: {
     height: 130,
     width: '100%',
-    resizeMode: 'cover',
   },
   feedbackOverlay: {
     alignItems: 'center',
@@ -492,6 +561,9 @@ const styles = StyleSheet.create({
   filterGroupTitle: {
     ...theme.typography.caption,
     color: theme.colors.ink,
+  },
+  filterGroupToggle: {
+    alignItems: 'flex-start',
   },
   filterHeader: {
     alignItems: 'center',
@@ -641,6 +713,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     gap: 4,
+    paddingRight: 52,
   },
   productBody: {
     gap: 4,
@@ -652,6 +725,15 @@ const styles = StyleSheet.create({
     borderRadius: theme.radii.xs,
     borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
+    position: 'relative',
+  },
+  productCardOpen: {
+    flex: 1,
+  },
+  productCardQuickActions: {
+    bottom: 6,
+    position: 'absolute',
+    right: 6,
   },
   productCompact: {
     width: 148,
@@ -690,6 +772,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     padding: 5,
   },
+  productRowOpen: {
+    alignItems: 'center',
+    flex: 1,
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+    minWidth: 0,
+  },
   productRowBody: {
     flex: 1,
     gap: 3,
@@ -714,6 +803,10 @@ const styles = StyleSheet.create({
   radio: {
     ...theme.typography.caption,
     color: theme.colors.ink,
+  },
+  quickActionGroup: {
+    flexDirection: 'row',
+    gap: 4,
   },
   rail: {
     gap: theme.spacing.sm,
@@ -752,14 +845,21 @@ const styles = StyleSheet.create({
   },
   smallAction: {
     ...theme.typography.caption,
+    color: theme.colors.ink,
+    overflow: 'hidden',
+  },
+  smallActionActive: {
+    color: theme.colors.danger,
+  },
+  smallActionButton: {
+    alignItems: 'center',
     backgroundColor: theme.colors.paper,
     borderColor: theme.colors.border,
     borderRadius: theme.radii.xs,
     borderWidth: StyleSheet.hairlineWidth,
-    color: theme.colors.ink,
-    overflow: 'hidden',
-    paddingHorizontal: 6,
-    paddingVertical: 3,
+    height: 19,
+    justifyContent: 'center',
+    width: 24,
   },
   spark: {
     color: theme.colors.ink,
