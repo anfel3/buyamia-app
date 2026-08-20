@@ -37,7 +37,7 @@ export default function CommunityScreen() {
           placeholderTextColor={theme.colors.muted}
           style={styles.input}
         />
-        <Text style={styles.disclaimer}>Community posting will be connected after authentication and backend are implemented.</Text>
+        <Text style={styles.disclaimer}>Community posting is paused in this local prototype.</Text>
       </ScrollView>
     </Screen>
   );

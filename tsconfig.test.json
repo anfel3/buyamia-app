@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "esModuleInterop": true,
+    "lib": ["ES2023", "DOM"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "outDir": ".test-build",
+    "rootDir": ".",
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "ES2023",
+    "types": ["node"]
+  },
+  "include": [
+    "data/**/*.ts",
+    "types/**/*.ts",
+    "services/amia/**/*.ts",
+    "services/domain/**/*.ts",
+    "services/local/**/*.ts",
+    "tests/**/*.ts"
+  ]
+}

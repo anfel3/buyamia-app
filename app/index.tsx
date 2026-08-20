@@ -14,7 +14,7 @@ import {
   Screen,
   imageAssets,
 } from '../components';
-import { brands, categories, marketplaces, products } from '../data';
+import { brands, products } from '../data';
 import { theme } from '../theme';
 
 const roomTabs = ['Bathroom', 'Living Room', 'Kitchen', 'Garden'] as const;
